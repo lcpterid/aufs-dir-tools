@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Build a Porteus module for aufs-dir-tools
+
+pkg_name="aufs-dir-tools"
+
+if ! which dir2xzm; then
+	echo "dir2xzm not found. Are you on Porteus?"
+	exit 1
+fi
+
+pushd "$(dirname "$(realpath "$0")")" &>/dev/null || exit 1
+dir2xzm dist/ "${pkg_name}.xzm"
+popd &>/dev/null
