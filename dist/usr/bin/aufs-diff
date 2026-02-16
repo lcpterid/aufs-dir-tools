@@ -8,15 +8,15 @@ stack_maker_prog="aufs-ls"
 nu="[0-9]"
 
 show_help () {
-	echo "Syntax: $prog_name [-bn,m] path_to_check"
-	echo
-	echo "Checks for multiple versions of a path in different AUFS branches," 
-	echo "and if two or more are present, displays the diff between them."
-	echo
-	echo "Options:"
-	echo "-bn,m: prints diff from branch n to branch m. If omitted,"
-	echo "       we will use the top two branches in the stack."
-	echo "       Find branch numbers in the output of aufstack."
+	echo "Syntax: $prog_name [-bn,m] path_to_check" >&2
+	echo >&2
+	echo "Checks for multiple versions of a path in different AUFS branches,"  >&2
+	echo "and if two or more are present, displays the diff between them." >&2
+	echo >&2
+	echo "Options:" >&2
+	echo "-bn,m: prints diff from branch n to branch m. If omitted," >&2
+	echo "       we will use the top two branches in the stack." >&2
+	echo "       Find branch numbers in the output of aufstack." >&2
 }
 
 error_quit () {

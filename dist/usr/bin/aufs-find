@@ -7,17 +7,17 @@ prog_name="$(basename "$0")"
 nu="[0-9]"
 
 show_help () {
-	echo "Syntax: $prog_name [-cn[+|-]] [-r] directory_to_check"
-	echo
-	echo "Find files in a directory which have multiple versions" 
-	echo "in different AUFS branches."
-	echo
-	echo "Options:"
-	echo "-cn[+|-]: Find files which have n versions."
-	echo "          If followed by a +, find files with n or more versions."
-	echo "          If followed by a -, find files with n or fewer versions."
-	echo "          The default is 2+."
-	echo "-r:       Find files recursively in subfolders."
+	echo "Syntax: $prog_name [-cn[+|-]] [-r] directory_to_check" >&2
+	echo >&2
+	echo "Find files in a directory which have multiple versions"  >&2
+	echo "in different AUFS branches." >&2
+	echo >&2
+	echo "Options:" >&2
+	echo "-cn[+|-]: Find files which have n versions." >&2
+	echo "          If followed by a +, find files with n or more versions." >&2
+	echo "          If followed by a -, find files with n or fewer versions." >&2
+	echo "          The default is 2+." >&2
+	echo "-r:       Find files recursively in subfolders." >&2
 }
 
 error_quit () {
