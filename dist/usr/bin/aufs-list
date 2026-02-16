@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# aufs-list
+# Author: lcpterid, 2026
+# License: GPL v3
+
+prog_name="$(basename "$0")"
+
+show_help () {
+	echo "Syntax: $prog_name path_to_check" >&2
+	echo >&2
+	echo "Checks for multiple versions of a path in different AUFS branches." >&2
+}
+
+error_quit () {
+	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
+	show_help
+	exit "$1"
+}
+
+if [ "$#" -ne 1 ]; then
+	show_help
+	exit 1
+fi
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+	show_help
+	exit 0
+fi
+
+path_to_check=$(realpath "$1")
+
+if ! [ -e "$1" ]; then
+	error_quit 1 "could not find path $1"
+fi
+
+branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*')"
+if [ "$?" -ne 0 ] || [ -z "$branch_list" ]; then
+	error_quit 2 "could not find AUFS branch files. Are you on an AUFS file system, like Porteus?"
+fi
+
+branch_list_sorted="$(echo "$branch_list" | 
+	while read -r brf; do printf "%d\t%s\n" "${brf##*br}" "$brf"; done |
+		sort -n |
+		cut -f 2)"
+
+while read -r brf; do
+	br_num=${brf##*br}
+		# e.g. /sys/fs/aufs/si_90b4d2ac53cb2be0/br5
+	br_raw=$(cat "$brf")
+		# e.g. /mnt/live/memory/images/firefox-147.0.1-x86_64-en-US.xzm=rr
+	br_read_mode=${br_raw: -2:2}
+		# e.g. rr
+	br_root=${br_raw:0:-3}
+		# e.g. /mnt/live/memory/images/firefox-147.0.1-x86_64-en-US.xzm
+	br_name=$(basename "$br_root")
+		# e.g. firefox-147.0.1-x86_64-en-US.xzm
+	br_fullpath="${br_root}${path_to_check}"
+
+	if [ -e "$br_fullpath" ]; then
+		printf "%3d\t%s\t%s\t%s\n" "$br_num" "$br_name" "$br_fullpath" "$br_read_mode"
+	fi
+
+done < <(echo "$branch_list_sorted")
+	
+

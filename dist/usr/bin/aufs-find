@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# aufs-find
+# Author: lcpterid, 2026
+# License: GPL v3
+
+prog_name="$(basename "$0")"
+nu="[0-9]"
+
+show_help () {
+	echo "Syntax: $prog_name [-cn[+|-]] [-r] directory_to_check"
+	echo
+	echo "Find files in a directory which have multiple versions" 
+	echo "in different AUFS branches."
+	echo
+	echo "Options:"
+	echo "-cn[+|-]: Find files which have n versions."
+	echo "          If followed by a +, find files with n or more versions."
+	echo "          If followed by a -, find files with n or fewer versions."
+	echo "          The default is 2+."
+	echo "-r:       Find files recursively in subfolders."
+}
+
+error_quit () {
+	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
+	show_help
+	exit "$1"
+}
+
+if [ "$#" -eq 0 ] ; then
+	error_quit 1 ""
+fi
+
+recursive="no"
+version_count="2"
+version_op="+"
+
+while getopts ":hc:r" thisopt; do
+	case "$thisopt" in
+		h)
+			error_quit 0 ""
+			;;
+		c)
+			version_count_arg="$OPTARG"
+			if ! [[ "$version_count_arg" =~ ^$nu+[+-]$ ]]; then
+				error_quit 1 "$prog_name: error: -c option provided, but argument is not in the form n, n+ or n-"
+			fi
+
+			if [[ "$version_count_arg" =~ ^$nu$ ]]; then
+				version_count="$version_count_arg"
+				version_op="="
+			else
+				version_count="${version_count_arg:0:-1}"
+				version_op="${version_count_arg: -1}"
+			fi
+			;;
+		r)
+			recursive="yes"
+			;;
+		:)
+			error_quit 1 "$prog_name: error: -c option provided with desired version count"
+			;;
+		?)
+			error_quit 1 "$prog_name: error: invalid option -$OPTARG"
+			;;
+	esac
+done
+
+shift $(( OPTIND - 1 ))
+
+if [ -z "$1" ]; then
+	error_quit 1 "no directory_to_check provided"
+fi
+
+root_dir="$(realpath "$1")"
+if ! [ -d "$root_dir" ]; then
+	error_quit 2 "$root_dir is not a directory"
+fi
+
+if [ "$recursive" = "yes" ]; then
+	find_raw="$(find "$root_dir" -type f)"
+else
+	find_raw="$(find "$root_dir" -maxdepth 1 -type f)"
+fi
+
+all_branches="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..$//')"
+
+while read -r fname; do 
+	num_vers_found=0
+
+	while read -r bdir; do
+		[ -f "${bdir}${fname}" ] && num_vers_found=$((num_vers_found + 1))
+	done < <(echo "$all_branches")
+	name_with_count="$(printf "%s\t%s\n" "$num_vers_found" "$fname")"
+	case "$version_op" in
+		"+")
+			[ "$num_vers_found" -ge "$version_count" ] && echo "$name_with_count"
+			;;
+		"-")
+			[ "$num_vers_found" -le "$version_count" ] && echo "$name_with_count"
+			;;
+		"=")
+			[ "$num_vers_found" -eq "$version_count" ] && echo "$name_with_count"
+			;;
+	esac
+
+done < <(echo "$find_raw")
+

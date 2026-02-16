@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# aufs-diff
+# Author: lcpterid, 2026
+# License: GPL v3
+
+prog_name="$(basename "$0")"
+stack_maker_prog="aufs-ls"
+nu="[0-9]"
+
+show_help () {
+	echo "Syntax: $prog_name [-bn,m] path_to_check"
+	echo
+	echo "Checks for multiple versions of a path in different AUFS branches," 
+	echo "and if two or more are present, displays the diff between them."
+	echo
+	echo "Options:"
+	echo "-bn,m: prints diff from branch n to branch m. If omitted,"
+	echo "       we will use the top two branches in the stack."
+	echo "       Find branch numbers in the output of aufstack."
+}
+
+error_quit () {
+	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
+	show_help
+	exit "$1"
+}
+
+if [ "$#" -eq 0 ] ; then
+	error_quit 1 ""
+fi
+
+if ! which "$stack_maker_prog" > /dev/null; then
+	error_quit 3 "could not find $stack_maker_prog executable."
+fi
+
+custom_branches="no"
+
+while getopts ":hb:" thisopt; do
+	case $thisopt in
+		h)
+			error_quit 0 ""
+			;;
+		b)
+			branch_numbers="$OPTARG"
+			if ! [[ "$branch_numbers" =~ ^$nu+,$nu+$ ]]; then
+				error_quit 1 "$prog_name: error: -b option provided with no branch numbers" >&2
+			else
+				custom_branches="yes"
+				branch_from="${branch_numbers%,*}"
+				branch_to="${branch_numbers#*,}"
+			fi
+			;;
+		:)
+			error_quit 1 "$prog_name: error: -b option provided with no branch numbers" >&2
+			;;
+		?)
+			error_quit 1 "$prog_name: error: invalid option -$OPTARG" >&2
+			;;
+	esac
+done
+
+shift $(( OPTIND - 1 ))
+
+if [ -z "$1" ]; then
+	error_quit 1 "no path_to_check provided"
+fi
+
+if ! [ -f "$1" ]; then
+	error_quit 2 "could not find the file at $1"
+fi
+
+file_to_check="$1"
+
+stack_raw=$($stack_maker_prog "$file_to_check")
+stack_linecount=$(echo "$stack_raw" | wc -l)
+
+if [ "$stack_linecount" -lt 2 ]; then
+	error_quit 5 "could not find multiple versions of file $file_to_check"
+fi
+
+stack_nums=$(echo "$stack_raw" | cut -f 1)
+
+if [ "$custom_branches" = "yes" ]; then
+	if [ -z "$(echo "$stack_nums" | grep "^ *${branch_from}$")" ]; then
+		error_quit 4 "file does not exist in from branch $branch_from"
+	elif [ -z "$(echo "$stack_nums" | grep "^ *${branch_to}$")" ]; then
+		error_quit 4 "file does not exist in to branch $branch_to"
+	fi
+	fromfile="$(echo "$stack_raw" | grep "^ *${branch_from}[^0-9]" | cut -f 3)"
+	tofile="$(echo "$stack_raw" | grep "^ *${branch_to}[^0-9]" | cut -f 3)"
+else
+	fromfile="$(echo "$stack_raw" | sed -n "2p" | cut -f 3)"
+	tofile="$(echo "$stack_raw" | sed -n "1p" | cut -f 3)"
+fi
+
+if ! [ -f "$fromfile" ]; then
+	error_quit 6 "$fromfile is not a regular file"
+elif ! [ -f "$tofile" ]; then
+	error_quit 6 "$tofile is not a regular file"
+else
+	diff --color "$fromfile" "$tofile"
+fi
+
