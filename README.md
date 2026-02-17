@@ -7,6 +7,9 @@ License: [GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html). **There is no w
 * `aufs-list`: Find all the versions of one file in different overlaid branches.
 * `aufs-diff`: Find the diff between any two versions (in different branches) of one file.
 * `aufs-find`: Find files by the number of versions they have.
+* `aufs-unwh`: Remove whiteout deletion files for a path 
+
+## Install
 
 To build a module on Porteus:
 
@@ -17,3 +20,7 @@ cd aufs-dir-tools
 ```
 
 then activate or move it.
+
+## Limitations
+
+These tools work only if you have a single AUFS file system, and it is mounted at the root (`/`).

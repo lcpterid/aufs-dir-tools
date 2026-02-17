@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# libaufs-dir-tools
+# Author: lcpterid, 2026
+# License: GPL v3
+
+echo2 () {
+	echo "$1" >&2
+}
+
+show_help () {
+	echo2 "$help_text"
+}
+
+error_quit () {
+	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
+	[ "$3" != "nohelp" ] && show_help
+	exit "$1"
+}
+
+mount_check () {
+	local mounts="$(mount | grep 'type aufs')"
+	local num_mounts="$(echo "$mounts" | wc -l)"
+	if [ "$num_mounts" -ne 1 ]; then
+		return 1
+	elif ! grep 'on / type aufs' < <(echo "$mounts") >/dev/null; then 
+		return 1
+	else
+		return 0
+	fi
+}
+
+branch_files_check () {
+	local branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*' 2>/dev/null)"
+	if [ "$?" -ne 0 ] || [ -z "$branch_list" ]; then
+		return 1	
+	else
+		return 0
+	fi
+}
