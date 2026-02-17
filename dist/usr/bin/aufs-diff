@@ -4,7 +4,7 @@
 # License: GPL v3
 
 prog_name="$(basename "$0")"
-stack_maker_prog="aufs-ls"
+stack_maker_prog="aufs-list"
 nu="[0-9]"
 
 show_help () {
