@@ -28,10 +28,8 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 path_to_check=$(realpath "$1")
-
-if ! [ -e "$1" ]; then
-	error_quit 1 "could not find path $1"
-fi
+parent_dir=$(dirname "$path_to_check")
+file_to_check=$(basename "$path_to_check")
 
 branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*')"
 if [ "$?" -ne 0 ] || [ -z "$branch_list" ]; then
@@ -42,6 +40,17 @@ branch_list_sorted="$(echo "$branch_list" |
 	while read -r brf; do printf "%d\t%s\n" "${brf##*br}" "$brf"; done |
 		sort -n |
 		cut -f 2)"
+
+all_image_folders="$(echo "$branch_list_sorted" | xargs cat | sed 's/=..$//')"
+
+file_exists="no"
+while read -r imf; do
+	[ -e "${imf}${path_to_check}" ] && file_exists="yes"
+done < <(echo "$all_image_folders")
+
+if [ "$file_exists" = "no" ]; then
+	error_quit 1 "could not find path $1 in any branch"
+fi
 
 while read -r brf; do
 	br_num=${brf##*br}
@@ -55,9 +64,12 @@ while read -r brf; do
 	br_name=$(basename "$br_root")
 		# e.g. firefox-147.0.1-x86_64-en-US.xzm
 	br_fullpath="${br_root}${path_to_check}"
+	br_whiteout_path="${br_root}${parent_dir}/.wh.${file_to_check}"
 
 	if [ -e "$br_fullpath" ]; then
 		printf "%3d\t%s\t%s\t%s\n" "$br_num" "$br_name" "$br_fullpath" "$br_read_mode"
+	elif [ -e "$br_whiteout_path" ]; then
+		printf "%3d\t%s\t%s\t%s\n" "$br_num" "$br_name" "[WHITEOUT]" "$br_read_mode"
 	fi
 
 done < <(echo "$branch_list_sorted")
