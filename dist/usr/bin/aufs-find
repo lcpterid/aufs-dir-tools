@@ -5,30 +5,30 @@
 
 prog_name="$(basename "$0")"
 nu="[0-9]"
+help_text="Syntax: $prog_name [-cn[+|-]] [-r] directory_to_check
 
-show_help () {
-	echo "Syntax: $prog_name [-cn[+|-]] [-r] directory_to_check" >&2
-	echo >&2
-	echo "Find files in a directory which have multiple versions"  >&2
-	echo "in different AUFS branches." >&2
-	echo >&2
-	echo "Options:" >&2
-	echo "-cn[+|-]: Find files which have n versions." >&2
-	echo "          If followed by a +, find files with n or more versions." >&2
-	echo "          If followed by a -, find files with n or fewer versions." >&2
-	echo "          The default is 2+." >&2
-	echo "-r:       Find files recursively in subfolders." >&2
-}
+Find files in a directory which have multiple versions
+in different AUFS branches.
 
-error_quit () {
-	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
-	show_help
-	exit "$1"
-}
+Options:
+-cn[+|-]: Find files which have n versions.
+          If followed by a +, find files with n or more versions.
+          If followed by a -, find files with n or fewer versions.
+          The default is 2+.
+-r:       Find files recursively in subfolders.
+"
 
-if [ "$#" -eq 0 ] ; then
-	error_quit 1 ""
+script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
+lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+if ! [ -x "$lib_path" ]; then
+       echo "Couldn't find library file!" >&2
+       exit 1
 fi
+. "$lib_path"
+
+[ "$#" -eq 0 ] && error_quit 1 ""
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
 recursive="no"
 version_count="2"

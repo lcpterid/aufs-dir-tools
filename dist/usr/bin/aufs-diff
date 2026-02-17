@@ -6,32 +6,35 @@
 prog_name="$(basename "$0")"
 stack_maker_prog="aufs-list"
 nu="[0-9]"
+help_text="Syntax: $prog_name [-bn,m] path_to_check
 
-show_help () {
-	echo "Syntax: $prog_name [-bn,m] path_to_check" >&2
-	echo >&2
-	echo "Checks for multiple versions of a path in different AUFS branches,"  >&2
-	echo "and if two or more are present, displays the diff between them." >&2
-	echo >&2
-	echo "Options:" >&2
-	echo "-bn,m: prints diff from branch n to branch m. If omitted," >&2
-	echo "       we will use the top two branches in the stack." >&2
-	echo "       Find branch numbers in the output of aufstack." >&2
-}
+Checks for multiple versions of a path in different AUFS branches, 
+and if two or more are present, displays the diff between them.
 
-error_quit () {
-	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
+Options:
+-bn,m: prints diff from branch n to branch m. If omitted,
+       we will use the top two branches in the stack.
+       Find branch numbers in the output of aufstack.
+"
+
+script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
+lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+if ! [ -x "$lib_path" ]; then
+       echo "Couldn't find library file!" >&2
+       exit 1
+fi
+. "$lib_path"
+
+[ "$#" -eq 0 ] && error_quit 1 ""
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	show_help
-	exit "$1"
-}
-
-if [ "$#" -eq 0 ] ; then
-	error_quit 1 ""
+	exit 0
 fi
 
-if ! which "$stack_maker_prog" > /dev/null; then
-	error_quit 3 "could not find $stack_maker_prog executable."
-fi
+which "$stack_maker_prog" >/dev/null || error_quit 3 "could not find $stack_maker_prog executable."
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
 custom_branches="no"
 
@@ -61,13 +64,8 @@ done
 
 shift $(( OPTIND - 1 ))
 
-if [ -z "$1" ]; then
-	error_quit 1 "no path_to_check provided"
-fi
-
-if ! [ -f "$1" ]; then
-	error_quit 2 "could not find the file at $1"
-fi
+[ -z "$1" ] && error_quit 1 "no path_to_check provided"
+[ -f "$1" ] || error_quit 2 "could not find the file at $1"
 
 file_to_check="$1"
 

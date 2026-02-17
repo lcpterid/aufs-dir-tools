@@ -4,38 +4,34 @@
 # License: GPL v3
 
 prog_name="$(basename "$0")"
+help_text="Syntax: $prog_name path_to_check
 
-show_help () {
-	echo "Syntax: $prog_name path_to_check" >&2
-	echo >&2
-	echo "Checks for multiple versions of a path in different AUFS branches." >&2
-}
+Checks for multiple versions of a path in different AUFS branches.
+"
 
-error_quit () {
-	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
-	show_help
-	exit "$1"
-}
-
-if [ "$#" -ne 1 ]; then
-	show_help
-	exit 1
+script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
+lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+if ! [ -x "$lib_path" ]; then
+       echo "Couldn't find library file!" >&2
+       exit 1
 fi
+. "$lib_path"
+
+[ "$#" -ne 1 ] && error_quit 1 ""
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	show_help
 	exit 0
 fi
 
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
+
 path_to_check=$(realpath "$1")
 parent_dir=$(dirname "$path_to_check")
 file_to_check=$(basename "$path_to_check")
 
-branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*')"
-if [ "$?" -ne 0 ] || [ -z "$branch_list" ]; then
-	error_quit 2 "could not find AUFS branch files. Are you on an AUFS file system, like Porteus?"
-fi
-
+branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*' 2>/dev/null)"
 branch_list_sorted="$(echo "$branch_list" | 
 	while read -r brf; do printf "%d\t%s\n" "${brf##*br}" "$brf"; done |
 		sort -n |
@@ -48,9 +44,7 @@ while read -r imf; do
 	[ -e "${imf}${path_to_check}" ] && file_exists="yes"
 done < <(echo "$all_image_folders")
 
-if [ "$file_exists" = "no" ]; then
-	error_quit 1 "could not find path $1 in any branch"
-fi
+[ "$file_exists" = "no" ] && error_quit 1 "could not find path $1 in any branch"
 
 while read -r brf; do
 	br_num=${brf##*br}
