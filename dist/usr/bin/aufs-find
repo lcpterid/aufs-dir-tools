@@ -42,7 +42,7 @@ while getopts ":hc:r" thisopt; do
 		c)
 			version_count_arg="$OPTARG"
 			if ! [[ "$version_count_arg" =~ ^$nu+[+-]?$ ]]; then
-				error_quit 1 "$prog_name: error: -c option provided, but argument is not in the form n, n+ or n-"
+				error_quit 1 "-c option provided, but argument is not in the form n, n+ or n-"
 			fi
 
 			if [[ "$version_count_arg" =~ ^$nu+$ ]]; then
@@ -57,10 +57,10 @@ while getopts ":hc:r" thisopt; do
 			recursive="yes"
 			;;
 		:)
-			error_quit 1 "$prog_name: error: -c option provided with desired version count"
+			error_quit 1 "-c option provided with desired version count"
 			;;
 		?)
-			error_quit 1 "$prog_name: error: invalid option -$OPTARG"
+			error_quit 1 "invalid option -$OPTARG"
 			;;
 	esac
 done

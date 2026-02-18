@@ -56,4 +56,6 @@ unwh_file () {
 	[ $exit_status -eq 6 ] && error_quit "$exit_status" "Couldn't delete all whitehouts for $path_to_unwh" nohelp
 }
 
+mount -o remount,udba=notify /
 unwh_file "$path_to_unwh"
+mount -o remount,udba=none /

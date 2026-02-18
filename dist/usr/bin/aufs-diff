@@ -14,7 +14,7 @@ and if two or more are present, displays the diff between them.
 Options:
 -bn,m: prints diff from branch n to branch m. If omitted,
        we will use the top two branches in the stack.
-       Find branch numbers in the output of aufstack.
+       Find branch numbers in the output of $stack_maker_prog.
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
