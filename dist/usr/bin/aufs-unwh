@@ -53,7 +53,7 @@ unwh_file () {
 		fi
 	done < <(echo "$rw_image_path_list")
 	[ $exit_status -eq 5 ] && error_quit "$exit_status" "No whiteouts found for path $path_to_unwh" nohelp
-	[ $exit_status -eq 6 ] && error_quit "$exit_status" "Couldn't delete all whitehouts for $path_to_unwh" nohelp
+	[ $exit_status -eq 6 ] && error_quit "$exit_status" "Couldn't delete all whiteouts for $path_to_unwh" nohelp
 }
 
 mount -o remount,udba=notify /
