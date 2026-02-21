@@ -7,6 +7,8 @@ prog_name="$(basename "$0")"
 help_text="Syntax: $prog_name path_to_check
 
 Checks for multiple versions of a path in different AUFS branches.
+If path_to_check is '/' then list all branches and their
+source root directories.
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
