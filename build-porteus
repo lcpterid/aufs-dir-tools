@@ -2,7 +2,7 @@
 # Build a Porteus module for aufs-dir-tools
 
 pkg_name="aufs-dir-tools"
-pkg_version="0.0.2dev"
+pkg_version="0.0.2"
 pkg_arch="noarch"
 
 if ! which dir2xzm; then
