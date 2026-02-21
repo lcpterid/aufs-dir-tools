@@ -2,6 +2,8 @@
 # Build a Porteus module for aufs-dir-tools
 
 pkg_name="aufs-dir-tools"
+pkg_version="0.0.1"
+pkg_arch="noarch"
 
 if ! which dir2xzm; then
 	echo "dir2xzm not found. Are you on Porteus?"
@@ -9,5 +11,5 @@ if ! which dir2xzm; then
 fi
 
 pushd "$(dirname "$(realpath "$0")")" &>/dev/null || exit 1
-dir2xzm dist/ "${pkg_name}.xzm"
+dir2xzm dist/ "${pkg_name}-${pkg_version}-${pkg_arch}.xzm"
 popd &>/dev/null
