@@ -12,7 +12,7 @@ show_help () {
 }
 
 error_quit () {
-	[ -n "$2" ] && echo "$prog_name: error: $2" >&2
+	[ -n "$2" ] && echo "$(tput setaf 9)$(tput bold)$prog_name: error: $2$(tput sgr0)" >&2
 	[ "$3" != "nohelp" ] && show_help
 	exit "$1"
 }

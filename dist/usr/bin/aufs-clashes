@@ -3,14 +3,23 @@
 # Author: lcpterid, 2026
 # License: GPL v3
 
+stack_maker_prog="aufs-list"
 prog_name="$(basename "$0")"
 nu="[0-9]"
-help_text="Syntax: $prog_name branch_number [comparison_branch_number]
+help_text="Syntax: $prog_name [-q|-s|-l] reference_branch_number [comparison_branch_number]
 
 Finds all clashes between ordinary files in the two numbered branches.
-comparison_branch_number must be greater than (conceptually below) branch_number.
-If comparison_branch_number is not given, then branch_number is
+comparison_branch_number must be numerically greater than
+(conceptually below) reference_branch_number.
+If comparison_branch_number is not given, then reference_branch_number is
 compared against all branches below it.
+Find branch numbers with ${stack_maker_prog}.
+
+Options:
+-s:       Short output: comparison branch number and mounted file path.
+          This is the default.
+-l:       Long output: comparison branch number, comparison source path, reference source path.
+-q:       Quiet the progress messages before each comparison.
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
@@ -26,10 +35,30 @@ fi
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-	show_help
-	exit 0
-fi
+output_type="short"
+progress_messages="yes"
+
+while getopts ":hcqsl" thisopt; do
+	case "$thisopt" in
+		h)
+			error_quit 0 ""
+			;;
+		q)
+			progress_messages="no"
+			;;
+		s)
+			output_type="short"
+			;;
+		l)
+			output_type="long"
+			;;
+		?)
+			error_quit 1 "invalid option -$OPTARG"
+			;;
+	esac
+done
+
+shift $(( OPTIND - 1 ))
 
 ! [[ "$1" =~ ^$nu+$ ]] && error_quit 3 "branch_number must be a positive integer"
 [ "$#" -eq 2 ] && ! [[ "$2" =~ ^$nu+$ ]] && error_quit 3 "comparison_branch_number must be a positive integer"
@@ -43,13 +72,9 @@ aufs_root="$(find /sys/fs/aufs -type d -maxdepth 1 | tail -n 1)"
 user_branch_pseudofile="${aufs_root}/br${user_branch_number}"
 [ -n "$comparison_branch_number" ] && comparison_branch_pseudofile="${aufs_root}/br${comparison_branch_number}"
 
-if ! [ -f "$user_branch_pseudofile" ]; then
-	error_quit 5 "branch number $user_branch_number not found"
-fi
-
-if [ -n "$comparison_branch_pseudofile" ] && ! [ -f "$comparison_branch_pseudofile" ]; then
+! [ -f "$user_branch_pseudofile" ] && error_quit 5 "branch number $user_branch_number not found"
+[ -n "$comparison_branch_pseudofile" ] && ! [ -f "$comparison_branch_pseudofile" ] &&
 	error_quit 5 "branch number $comparison_branch_number not found"
-fi
 
 user_branch_root="$(sed 's/=..$//' "$user_branch_pseudofile")"
 user_branch_files="$(find "$user_branch_root" -type f | sed "s|^${user_branch_root}||" | sort)"
@@ -62,17 +87,19 @@ fi
 
 while read -r brno; do
 	if [ "$brno" -gt "$user_branch_number" ]; then
-		echo2 "$(tput setaf 12)$(tput bold)Checking branch ${brno}... $(tput sgr0)"
+
+		[ "$progress_messages" = "yes" ] && echo2 "$(tput setaf 12)$(tput bold)Checking branch ${brno}... $(tput sgr0)"
+
 		lower_branch_root="$(sed 's/=..$//' "${aufs_root}/br${brno}")"
 		lower_branch_files="$(find "$lower_branch_root" -type f | sed "s|^${lower_branch_root}||" | sort)"
 		common_lines="$(comm -12 <(echo "$user_branch_files") <(echo "$lower_branch_files"))"
+
 		while read -r brfile; do
-			[ -n "$brfile" ] && printf "%3d\t%s\t%s\n" "$brno" "${lower_branch_root}${brfile}" "${user_branch_root}${brfile}"
-			# if grep -Fx "${brfile}" < <(echo "$user_branch_files") >/dev/null; then
-				# printf "%3d\t%s\t%s\n" "$brno" "${lower_branch_root}${brfile}" "${user_branch_root}${brfile}"
-			# fi
+			if [ -n "$brfile" ]; then
+				[ "$output_type" = "long" ] && printf "%3d\t%s\t%s\n" "$brno" "${lower_branch_root}${brfile}" "${user_branch_root}${brfile}"
+				[ "$output_type" = "short" ] && printf "%3d\t%s\n" "$brno" "${brfile}" 
+			fi
 		done < <(echo "$common_lines")
-		# done < <(echo "$lower_branch_files")
 	fi
 done < <(echo "$all_branch_numbers")
 
