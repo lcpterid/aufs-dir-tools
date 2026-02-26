@@ -7,7 +7,7 @@ if [ "$(whoami)" != "root" ]; then
 fi
 
 pkg_name="aufs-dir-tools"
-pkg_version="0.0.3dev"
+pkg_version="0.0.3"
 pkg_arch="noarch"
 
 if ! which dir2xzm; then
