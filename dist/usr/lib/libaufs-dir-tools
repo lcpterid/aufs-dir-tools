@@ -37,3 +37,15 @@ branch_files_check () {
 		return 0
 	fi
 }
+
+aufs_folder_check () {
+	if ! [ -e "$1" ]; then
+		return 1
+	fi
+	this_fs="$(df -l --no-sync --output=fstype "$1" | tail -1)"
+	if [ "$this_fs" != 'aufs' ]; then
+		return 1
+	else
+		return 0
+	fi
+}

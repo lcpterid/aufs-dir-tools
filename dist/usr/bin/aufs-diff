@@ -18,7 +18,7 @@ Options:
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
-lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+lib_path="$(realpath -m "${script_dir}/../lib/libaufs-dir-tools")"
 if ! [ -x "$lib_path" ]; then
        echo "Couldn't find library file!" >&2
        exit 1
@@ -67,9 +67,11 @@ shift $(( OPTIND - 1 ))
 [ -z "$1" ] && error_quit 1 "no path_to_check provided"
 [ -f "$1" ] || error_quit 2 "could not find the file at $1"
 
+aufs_folder_check "$1" || error_quit 3 "Path $1 is not in the AUFS filesystem"
+
 file_to_check="$1"
 
-stack_raw=$($stack_maker_prog "$file_to_check")
+stack_raw=$($stack_maker_prog "$file_to_check") || error_quit 5 "$stack_maker_prog returned error code $? for file $file_to_check"
 stack_linecount=$(echo "$stack_raw" | wc -l)
 
 if [ "$stack_linecount" -lt 2 ]; then

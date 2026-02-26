@@ -19,7 +19,7 @@ Options:
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
-lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+lib_path="$(realpath -m "${script_dir}/../lib/libaufs-dir-tools")"
 if ! [ -x "$lib_path" ]; then
        echo "Couldn't find library file!" >&2
        exit 1
@@ -75,6 +75,9 @@ root_dir="$(realpath "$1")"
 if ! [ -d "$root_dir" ]; then
 	error_quit 2 "$root_dir is not a directory"
 fi
+
+aufs_folder_check "$root_dir" || error_quit 3 "Directory $root_dir is not in the AUFS filesystem"
+
 
 if [ "$recursive" = "yes" ]; then
 	find_raw="$(find "$root_dir" -type f)"

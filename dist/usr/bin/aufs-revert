@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# aufs-revert
+# Author: lcpterid, 2026
+# License: GPL v3
+
+prog_name="$(basename "$0")"
+stack_maker_prog="aufs-list"
+help_text="Syntax: $prog_name file_to_revert
+
+Deletes a file from the topmost writeable branch of an AUFS
+file system, so that the file reverts to the version from a
+lower branch. Avoids creating a whiteout.
+Your changes from the writeable branch will be lost!
+"
+
+script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
+lib_path="$(realpath -m "${script_dir}/../lib/libaufs-dir-tools")"
+if ! [ -x "$lib_path" ]; then
+       echo "Couldn't find library file!" >&2
+       exit 1
+fi
+. "$lib_path"
+
+[ "$#" -ne 1 ] && error_quit 1 ""
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+	show_help
+	exit 0
+fi
+
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
+
+which "$stack_maker_prog" >/dev/null || error_quit 3 "could not find $stack_maker_prog executable."
+
+file_to_revert="$(realpath -m "$1")"
+
+[ -f "$file_to_revert" ] || error_quit 4 "file $1 not found"
+
+aufs_folder_check "$file_to_revert" || error_quit 3 "File $file_to_revert is not in the AUFS filesystem"
+
+stack_raw="$("$stack_maker_prog" "$file_to_revert")" || error_quit 5 "$stack_maker_prog returned error code $? for file $file_to_revert"
+stack_count="$(echo "$stack_raw" | wc -l)"
+[ "$stack_count" -gt 1 ] || error_quit 6 "$file_to_revert does not exist in more than one branch"
+
+stack_top_write_mode="$(echo "$stack_raw" | head -1 | cut -f 4)"
+[ "$stack_top_write_mode" = "rw" ] || error_quit 7 "the topmost branch containing $file_to_revert is not writeable"
+
+top_branch_path_to_delete="$(echo "$stack_raw" | head -1 | cut -f 3)"
+[ -f "$top_branch_path_to_delete" ] || error_quit 8 "the file path on the topmost branch does not exist!
+File path tested: $top_branch_path_to_delete"
+[ -w "$top_branch_path_to_delete" ] || error_quit 8 "the file path on the topmost branch not writeable by the current user.
+File path tested: $top_branch_path_to_delete"
+
+rm "$top_branch_path_to_delete"
+

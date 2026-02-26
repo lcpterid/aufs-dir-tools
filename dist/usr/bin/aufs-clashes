@@ -23,7 +23,7 @@ Options:
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
-lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+lib_path="$(realpath -m "${script_dir}/../lib/libaufs-dir-tools")"
 if ! [ -x "$lib_path" ]; then
        echo "Couldn't find library file!" >&2
        exit 1
@@ -31,7 +31,7 @@ fi
 . "$lib_path"
 
 [ "$#" -eq 0 ] && error_quit 1 ""
-[ "$#" -gt 3 ] && error_quit 1 ""
+[ "$#" -gt 4 ] && error_quit 1 ""
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 

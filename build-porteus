@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Build a Porteus module for aufs-dir-tools
 
+if [ "$(whoami)" != "root" ]; then
+	echo "Please run this script as root!"
+	exit 1
+fi
+
 pkg_name="aufs-dir-tools"
-pkg_version="0.0.2"
+pkg_version="0.0.3"
 pkg_arch="noarch"
 
 if ! which dir2xzm; then
@@ -10,6 +15,7 @@ if ! which dir2xzm; then
 	exit 1
 fi
 
+chown -R root:root dist/
 pushd "$(dirname "$(realpath "$0")")" &>/dev/null || exit 1
 dir2xzm dist/ "${pkg_name}-${pkg_version}-${pkg_arch}.xzm"
 popd &>/dev/null

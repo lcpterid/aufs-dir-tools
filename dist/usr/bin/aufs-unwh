@@ -12,7 +12,7 @@ path from lower branches to be seen again.
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
-lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+lib_path="$(realpath -m "${script_dir}/../lib/libaufs-dir-tools")"
 if ! [ -x "$lib_path" ]; then
        echo "Couldn't find library file!" >&2
        exit 1
@@ -29,7 +29,10 @@ fi
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-path_to_unwh="$(realpath "$1")"
+path_to_unwh="$(realpath -m "$1")"
+parent_folder="$(dirname "$1")"
+
+aufs_folder_check "$parent_folder" || error_quit 3 "Parent folder of $path_to_unwh is not in the AUFS filesystem"
 
 branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*' 2>/dev/null)"
 branch_list_sorted="$(echo "$branch_list" | 
@@ -46,9 +49,9 @@ unwh_file () {
 	file_to_unwh="$(basename "$1")"
 
 	exit_status=5
-	while read image_path; do
+	while read -r image_path; do
 		wh_path="${image_path}${parent_folder}/.wh.${file_to_unwh}"
-		if [ -f $wh_path ]; then
+		if [ -f "$wh_path" ]; then
 			rm "$wh_path" && echo "Deleted: $wh_path" && exit_status=0 || exit_status=6 
 		fi
 	done < <(echo "$rw_image_path_list")
