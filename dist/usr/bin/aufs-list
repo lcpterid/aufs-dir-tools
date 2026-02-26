@@ -12,7 +12,7 @@ source root directories.
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
-lib_path="$(realpath "${script_dir}/../lib/libaufs-dir-tools")"
+lib_path="$(realpath -m "${script_dir}/../lib/libaufs-dir-tools")"
 if ! [ -x "$lib_path" ]; then
        echo "Couldn't find library file!" >&2
        exit 1
@@ -29,7 +29,7 @@ fi
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-path_to_check=$(realpath "$1")
+path_to_check=$(realpath -m "$1")
 parent_dir=$(dirname "$path_to_check")
 file_to_check=$(basename "$path_to_check")
 
@@ -46,7 +46,17 @@ while read -r imf; do
 	[ -e "${imf}${path_to_check}" ] && file_exists="yes"
 done < <(echo "$all_image_folders")
 
-[ "$file_exists" = "no" ] && error_quit 1 "could not find path $1 in any branch"
+[ "$file_exists" = "no" ] && error_quit 2 "could not find path $1 in any branch"
+
+# recursive parent check: it is reasonable here because we expect aufs mounted only at the root, so
+# we do not expect to have, say / = aufs, /folder1 = tmpfs, /folder1/folder2 = aufs again
+recursive_parent="$parent_dir"
+while [ -n "$recursive_parent" ]; do
+	if [ -d "$recursive_parent" ]; then
+		aufs_folder_check "$recursive_parent" || error_quit 3 "Ancestor directory $recursive_parent is not in the AUFS filesystem"
+	fi
+	recursive_parent="${recursive_parent%/*}"
+done
 
 while read -r brf; do
 	br_num=${brf##*br}
