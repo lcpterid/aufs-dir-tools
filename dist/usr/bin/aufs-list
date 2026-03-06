@@ -29,7 +29,7 @@ fi
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-path_to_check=$(realpath -m "$1")
+path_to_check=$(realpath -m -s "$1")
 parent_dir=$(dirname "$path_to_check")
 file_to_check=$(basename "$path_to_check")
 
@@ -59,25 +59,24 @@ while [ -n "$recursive_parent" ]; do
 done
 
 while read -r brf; do
-	br_num=${brf##*br}
+	br_num="${brf##*br}"
 		# e.g. /sys/fs/aufs/si_90b4d2ac53cb2be0/br5
-	br_raw=$(cat "$brf")
+	br_raw="$(cat "$brf")"
 		# e.g. /mnt/live/memory/images/firefox-147.0.1-x86_64-en-US.xzm=rr
-	br_read_mode=${br_raw: -2:2}
+	br_read_mode="$(echo "br_raw" | rev | cut -d '=' -f 1 | rev)"
 		# e.g. rr
-	br_root=${br_raw:0:-3}
+	br_root="$(echo "br_raw" | sed 's/=[^=]*$//')"
 		# e.g. /mnt/live/memory/images/firefox-147.0.1-x86_64-en-US.xzm
 	br_name=$(basename "$br_root")
 		# e.g. firefox-147.0.1-x86_64-en-US.xzm
 	br_fullpath="${br_root}${path_to_check}"
 	br_whiteout_path="${br_root}${parent_dir}/.wh.${file_to_check}"
 
-	if [ -e "$br_fullpath" ]; then
+	if [ -e "$br_fullpath" ] || [ -h "$br_fullpath" ]; then
 		printf "%3d\t%s\t%s\t%s\n" "$br_num" "$br_name" "$br_fullpath" "$br_read_mode"
 	elif [ -e "$br_whiteout_path" ]; then
 		printf "%3d\t%s\t%s\t%s\n" "$br_num" "$br_name" "[WHITEOUT]" "$br_read_mode"
 	fi
 
 done < <(echo "$branch_list_sorted")
-	
 
