@@ -29,7 +29,7 @@ fi
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-path_to_unwh="$(realpath -m "$1")"
+path_to_unwh="$(realpath -m -s "$1")"
 parent_folder="$(dirname "$1")"
 
 aufs_folder_check "$parent_folder" || error_quit 3 "Parent folder of $path_to_unwh is not in the AUFS filesystem"

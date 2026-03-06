@@ -77,7 +77,7 @@ user_branch_pseudofile="${aufs_root}/br${user_branch_number}"
 	error_quit 5 "branch number $comparison_branch_number not found"
 
 user_branch_root="$(sed 's/=..$//' "$user_branch_pseudofile")"
-user_branch_files="$(find "$user_branch_root" -type f | sed "s|^${user_branch_root}||" | sort)"
+user_branch_files="$(find "$user_branch_root" -type 'f,l' | sed "s|^${user_branch_root}||" | sort)"
 
 if [ -n "$comparison_branch_number" ]; then
 	all_branch_numbers="$comparison_branch_number"
@@ -91,7 +91,7 @@ while read -r brno; do
 		[ "$progress_messages" = "yes" ] && echo2 "$(tput setaf 12)$(tput bold)Checking branch ${brno}... $(tput sgr0)"
 
 		lower_branch_root="$(sed 's/=..$//' "${aufs_root}/br${brno}")"
-		lower_branch_files="$(find "$lower_branch_root" -type f | sed "s|^${lower_branch_root}||" | sort)"
+		lower_branch_files="$(find "$lower_branch_root" -type 'f,l' | sed "s|^${lower_branch_root}||" | sort)"
 		common_lines="$(comm -12 <(echo "$user_branch_files") <(echo "$lower_branch_files"))"
 
 		while read -r brfile; do
