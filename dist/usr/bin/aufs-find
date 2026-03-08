@@ -15,6 +15,8 @@ Options:
           If followed by a +, find files with n or more versions.
           If followed by a -, find files with n or fewer versions.
           The default is 2+.
+-s:       Short output. Just count the branches, don't state the
+          branch numbers. (This is significantly faster.)
 -r:       Find files recursively in subfolders.
 "
 
@@ -33,8 +35,9 @@ branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/
 recursive="no"
 version_count="2"
 version_op="+"
+output_type="long"
 
-while getopts ":hc:r" thisopt; do
+while getopts ":hc:rs" thisopt; do
 	case "$thisopt" in
 		h)
 			error_quit 0 ""
@@ -56,6 +59,9 @@ while getopts ":hc:r" thisopt; do
 		r)
 			recursive="yes"
 			;;
+		s)
+			output_type="short"
+			;;
 		:)
 			error_quit 1 "-c option provided with desired version count"
 			;;
@@ -71,7 +77,7 @@ if [ -z "$1" ]; then
 	error_quit 1 "no directory_to_check provided"
 fi
 
-root_dir="$(realpath "$1")"
+root_dir="$(realpath -s "$1")"
 if ! [ -d "$root_dir" ]; then
 	error_quit 2 "$root_dir is not a directory"
 fi
@@ -79,32 +85,110 @@ fi
 aufs_folder_check "$root_dir" || error_quit 3 "Directory $root_dir is not in the AUFS filesystem"
 
 
-if [ "$recursive" = "yes" ]; then
-	find_raw="$(find "$root_dir" -type f)"
+# Helper functions
+
+find_with_option () {
+	local this_root="$1"
+	if [ "$recursive" = "yes" ]; then
+		find "$this_root" -type f
+	else
+		find "$this_root" -maxdepth 1 -type f
+	fi
+}
+
+appropriate_to_print () {
+	local count="$1"
+	local path="$2"
+	local will_print="no"
+	if [ -n "$path" ]; then
+		case "$version_op" in
+			"+")
+				[ "$count" -ge "$version_count" ] && will_print="yes"
+				;;
+			"-")
+				[ "$count" -le "$version_count" ] && will_print="yes"
+				;;
+			"=")
+				[ "$count" -eq "$version_count" ] && will_print="yes"
+				;;
+		esac
+	fi
+
+	if [ "$will_print" = "yes" ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+long_print_if_appropriate () {
+	local group_count="$1"
+	local group_path="$3"
+
+	if appropriate_to_print "$group_count" "$group_path"; then
+		local group_nums="$(echo "$2" | tr ',' '\n' | sort -n | paste -sd,)"
+		printf "%d\t%s\t%s\n" "$group_count" "$group_nums" "$group_path"
+	fi
+}
+
+
+
+# Two-column code
+# (number of branches, filepath)
+
+do_short_output () {
+	all_branches="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..$//')"
+
+	all_files_in_branches="$(while read -r broot; do
+		[ -d "${broot}${root_dir}" ] && find_with_option "${broot}${root_dir}" | cut -c "$(( ${#broot} + 1))-"
+	done < <(echo "$all_branches"))"
+
+	while read -r line_count line_path; do
+		appropriate_to_print "$line_count" "$line_path" && printf "%s\t%s\n" "$line_count" "$line_path"
+	done < <(echo "$all_files_in_branches" | sort | uniq -c | sed 's/^ *//' | sed 's/  */\t/')
+}
+
+
+# Three-column code
+# (number of branches, comma-separated list of branch numbers, filepath)
+do_long_output () {
+	all_branches="$(while read -r brf; do
+		br_num="${brf##*br}"
+		br_root="$(rev "$brf" | cut -d '=' -f 2- | rev)"
+		printf "%s %s\n" "$br_num" "$br_root"
+	done < <(find /sys/fs/aufs/*/ -name "br[0-9]*"))"
+	all_branches_sorted="$(echo "$all_branches" | sort -n)"
+
+	all_files_in_branches="$(while read -r br_num br_root; do
+		[ -d "${br_root}${root_dir}" ] &&
+			while read -r beheaded_path; do
+				printf "%d\t%s\n" "$br_num" "$beheaded_path"
+			done < <(find_with_option "${br_root}${root_dir}" | cut -c "$(( ${#br_root} + 1))-")
+	done < <(echo "$all_branches_sorted"))"
+
+	all_files_in_branches_sorted="$(echo "$all_files_in_branches" | sort -k 2)"
+
+	group_path=""
+	group_nums=""
+	group_count=0
+	while read -r this_num this_path; do
+		if [ "$this_path" != "$group_path" ]; then
+			[ -n "$group_path" ] && long_print_if_appropriate "$group_count" "$group_nums" "$group_path"
+			group_path="$this_path"
+			group_nums="$this_num"
+			group_count=1
+		else
+			group_nums+=",$this_num"
+			group_count=$((group_count + 1))
+		fi
+	done < <(echo "$all_files_in_branches_sorted")
+	# just repeat to get the last line done
+	long_print_if_appropriate "$group_count" "$group_nums" "$group_path" 
+}
+
+if [ "$output_type" = "short" ]; then
+	do_short_output
 else
-	find_raw="$(find "$root_dir" -maxdepth 1 -type f)"
+	do_long_output
 fi
-
-all_branches="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..$//')"
-
-while read -r fname; do 
-	num_vers_found=0
-
-	while read -r bdir; do
-		[ -f "${bdir}${fname}" ] && num_vers_found=$((num_vers_found + 1))
-	done < <(echo "$all_branches")
-	name_with_count="$(printf "%s\t%s\n" "$num_vers_found" "$fname")"
-	case "$version_op" in
-		"+")
-			[ "$num_vers_found" -ge "$version_count" ] && echo "$name_with_count"
-			;;
-		"-")
-			[ "$num_vers_found" -le "$version_count" ] && echo "$name_with_count"
-			;;
-		"=")
-			[ "$num_vers_found" -eq "$version_count" ] && echo "$name_with_count"
-			;;
-	esac
-
-done < <(echo "$find_raw")
 
