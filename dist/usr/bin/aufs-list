@@ -63,9 +63,9 @@ while read -r brf; do
 		# e.g. /sys/fs/aufs/si_90b4d2ac53cb2be0/br5
 	br_raw="$(cat "$brf")"
 		# e.g. /mnt/live/memory/images/firefox-147.0.1-x86_64-en-US.xzm=rr
-	br_read_mode="$(echo "br_raw" | rev | cut -d '=' -f 1 | rev)"
+	br_read_mode="$(echo "$br_raw" | rev | cut -d '=' -f 1 | rev)"
 		# e.g. rr
-	br_root="$(echo "br_raw" | sed 's/=[^=]*$//')"
+	br_root="$(echo "$br_raw" | sed 's/=[^=]*$//')"
 		# e.g. /mnt/live/memory/images/firefox-147.0.1-x86_64-en-US.xzm
 	br_name=$(basename "$br_root")
 		# e.g. firefox-147.0.1-x86_64-en-US.xzm
