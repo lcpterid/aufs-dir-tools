@@ -16,7 +16,7 @@ Options:
           If followed by a -, find files with n or fewer versions.
           The default is 2+.
 -s:       Short output. Just count the branches, don't state the
-          branch numbers. (This is several times faster.)
+          branch numbers. (This is significantly faster.)
 -r:       Find files recursively in subfolders.
 "
 
@@ -96,29 +96,41 @@ find_with_option () {
 	fi
 }
 
-print_if_appropriate () {
-	local group_count="$1"
-	local group_path="$3"
+appropriate_to_print () {
+	local count="$1"
+	local path="$2"
 	local will_print="no"
-	if [ -n "$group_path" ]; then
+	if [ -n "$path" ]; then
 		case "$version_op" in
 			"+")
-				[ "$group_count" -ge "$version_count" ] && will_print="yes"
+				[ "$count" -ge "$version_count" ] && will_print="yes"
 				;;
 			"-")
-				[ "$group_count" -le "$version_count" ] && will_print="yes"
+				[ "$count" -le "$version_count" ] && will_print="yes"
 				;;
 			"=")
-				[ "$group_count" -eq "$version_count" ] && will_print="yes"
+				[ "$count" -eq "$version_count" ] && will_print="yes"
 				;;
 		esac
+	fi
 
-		if [ "$will_print" = "yes" ]; then
-			local group_nums="$(echo "$2" | tr ',' '\n' | sort -n | paste -sd,)"
-			printf "%d\t%s\t%s\n" "$group_count" "$group_nums" "$group_path"
-		fi
+	if [ "$will_print" = "yes" ]; then
+		return 0
+	else
+		return 1
 	fi
 }
+
+long_print_if_appropriate () {
+	local group_count="$1"
+	local group_path="$3"
+
+	if appropriate_to_print "$group_count" "$group_path"; then
+		local group_nums="$(echo "$2" | tr ',' '\n' | sort -n | paste -sd,)"
+		printf "%d\t%s\t%s\n" "$group_count" "$group_nums" "$group_path"
+	fi
+}
+
 
 
 # Two-column code
@@ -132,20 +144,7 @@ do_short_output () {
 	done < <(echo "$all_branches"))"
 
 	while read -r line_count line_path; do
-		will_print="no"
-		case "$version_op" in
-			"+")
-				[ "$line_count" -ge "$version_count" ] && will_print="yes"
-				;;
-			"-")
-				[ "$line_count" -le "$version_count" ] && will_print="yes"
-				;;
-			"=")
-				[ "$line_count" -eq "$version_count" ] && will_print="yes"
-				;;
-		esac
-		[ "$will_print" = "yes" ] && printf "%s\t%s\n" "$line_count" "$line_path"
-
+		appropriate_to_print "$line_count" "$line_path" && printf "%s\t%s\n" "$line_count" "$line_path"
 	done < <(echo "$all_files_in_branches" | sort | uniq -c | sed 's/^ *//' | sed 's/  */\t/')
 }
 
@@ -169,13 +168,12 @@ do_long_output () {
 
 	all_files_in_branches_sorted="$(echo "$all_files_in_branches" | sort -k 2)"
 
-
 	group_path=""
 	group_nums=""
 	group_count=0
 	while read -r this_num this_path; do
 		if [ "$this_path" != "$group_path" ]; then
-			[ -n "$group_path" ] && print_if_appropriate "$group_count" "$group_nums" "$group_path"
+			[ -n "$group_path" ] && long_print_if_appropriate "$group_count" "$group_nums" "$group_path"
 			group_path="$this_path"
 			group_nums="$this_num"
 			group_count=1
@@ -185,7 +183,7 @@ do_long_output () {
 		fi
 	done < <(echo "$all_files_in_branches_sorted")
 	# just repeat to get the last line done
-	print_if_appropriate "$group_count" "$group_nums" "$group_path" 
+	long_print_if_appropriate "$group_count" "$group_nums" "$group_path" 
 }
 
 if [ "$output_type" = "short" ]; then
