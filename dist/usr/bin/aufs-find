@@ -137,7 +137,7 @@ long_print_if_appropriate () {
 # (number of branches, filepath)
 
 do_short_output () {
-	all_branches="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..+[a-z_]*$//')"
+	all_branches="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..\(+[a-z_]*\)\?$//')"
 
 	all_files_in_branches="$(while read -r broot; do
 		[ -d "${broot}${root_dir}" ] && find_with_option "${broot}${root_dir}" | cut -c "$(( ${#broot} + 1))-"
