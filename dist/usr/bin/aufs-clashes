@@ -16,6 +16,8 @@ compared against all branches below it.
 Find branch numbers with ${stack_maker_prog}.
 
 Options:
+-a:       Show clashes with all branches, including above the reference branch,
+          if comparison branch is not specified.
 -s:       Short output: comparison branch number and mounted file path.
           This is the default.
 -l:       Long output: comparison branch number, comparison source path, reference source path.
@@ -37,11 +39,15 @@ branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/
 
 output_type="short"
 progress_messages="yes"
+include_branches_above="no"
 
-while getopts ":hcqsl" thisopt; do
+while getopts ":haqsl" thisopt; do
 	case "$thisopt" in
 		h)
 			error_quit 0 ""
+			;;
+		a)
+			include_branches_above="yes"
 			;;
 		q)
 			progress_messages="no"
@@ -85,8 +91,14 @@ else
 	all_branch_numbers="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 -n 1 basename | sed 's/^br//' | sort -n)"
 fi
 
+if [ "$include_branches_above" = "yes" ]; then
+	operand="-ne"
+else
+	operand="-gt"
+fi
+
 while read -r brno; do
-	if [ "$brno" -gt "$user_branch_number" ]; then
+	if [ "$brno" "$operand" "$user_branch_number" ]; then
 
 		[ "$progress_messages" = "yes" ] && echo2 "$(tput setaf 12)$(tput bold)Checking branch ${brno}... $(tput sgr0)"
 
