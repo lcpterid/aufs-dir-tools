@@ -11,13 +11,15 @@ Find files in a directory which have multiple versions
 in different AUFS branches.
 
 Options:
--cn[+|-]: Find files which have n versions.
-          If followed by a +, find files with n or more versions.
-          If followed by a -, find files with n or fewer versions.
-          The default is 2+.
--s:       Short output. Just count the branches, don't state the
-          branch numbers. (This is significantly faster.)
--r:       Find files recursively in subfolders.
+-a:          Find files in all branches. Overrides -b and -c.
+-bn[,m,..]:  Branch filter: Find files in the given numbered branches n, m, etc.
+-cn[+|-]:    Count filter: Find files which have n versions (within the selected branches).
+             If followed by a +, find files with n or more versions. -c+ is short for -c2+.
+             If followed by a -, find files with n or fewer versions.
+             The default is 1+, i.e. any number.
+-r:          Find files recursively in subfolders.
+-s:          Short output. Just count the branches, don't state the
+             branch numbers. (This is significantly faster.)
 "
 
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &>/dev/null && pwd )"
@@ -32,18 +34,42 @@ fi
 mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
+aufs_br_dir="$(echo /sys/fs/aufs/*/)"
+
 recursive="no"
-version_count="2"
+version_count="1"
 version_op="+"
 output_type="long"
+branch_filter=""
+show_all="no"
+user_filtered="no"
 
-while getopts ":hc:rs" thisopt; do
+while getopts ":hab:c:rs" thisopt; do
 	case "$thisopt" in
 		h)
 			error_quit 0 ""
 			;;
+		a)
+			show_all="yes"
+			;;
+		b)
+			user_filtered="yes"
+			branch_list_arg="$OPTARG"
+			if ! [[ "$branch_list_arg" =~ ^$nu+(,$nu+)*$ ]]; then
+				error_quit 1 "-b option provided, but argument is not a comma-separated list of numbers"
+			fi
+
+			while read -r bnum; do
+				! [ -f "${aufs_br_dir}br${bnum}" ] && error_quit 1 "-b option provided with branch number ${bnum}, which was not found"
+			done < <(echo "$branch_list_arg" | tr ',' '\n')
+
+			branch_filter="$(echo "$branch_list_arg" | tr ',' '|')"
+			;;
 		c)
+			user_filtered="yes"
 			version_count_arg="$OPTARG"
+			[ "$version_count_arg" = "+" ] && version_count_arg="2+"
+
 			if ! [[ "$version_count_arg" =~ ^$nu+[+-]?$ ]]; then
 				error_quit 1 "-c option provided, but argument is not in the form n, n+ or n-"
 			fi
@@ -63,7 +89,7 @@ while getopts ":hc:rs" thisopt; do
 			output_type="short"
 			;;
 		:)
-			error_quit 1 "-c option provided with desired version count"
+			error_quit 1 "-b or -c option provided with no branch list or version count"
 			;;
 		?)
 			error_quit 1 "invalid option -$OPTARG"
@@ -72,6 +98,13 @@ while getopts ":hc:rs" thisopt; do
 done
 
 shift $(( OPTIND - 1 ))
+
+if [ "$show_all" = "yes" ]; then
+	version_count="1"
+	version_op="+"
+	branch_filter=""
+	[ "$user_filtered" = "yes" ] && warning_msg "-a option overrides filter options."
+fi
 
 if [ -z "$1" ]; then
 	error_quit 1 "no directory_to_check provided"
@@ -84,8 +117,17 @@ fi
 
 aufs_folder_check "$root_dir" || error_quit 3 "Directory $root_dir is not in the AUFS filesystem"
 
+if [ -n "$branch_filter" ]; then
+	branch_filter_regex="br(${branch_filter})$"
+else
+	branch_filter_regex="br"
+fi
 
 # Helper functions
+
+get_filtered_branch_files () {
+	find "$aufs_br_dir" -name "br[0-9]*" | grep -E "$branch_filter_regex"
+}
 
 find_with_option () {
 	local this_root="$1"
@@ -96,7 +138,8 @@ find_with_option () {
 	fi
 }
 
-appropriate_to_print () {
+# Checks only number of versions (-c), not named branches (-b)
+branch_count_check () {
 	local count="$1"
 	local path="$2"
 	local will_print="no"
@@ -121,12 +164,28 @@ appropriate_to_print () {
 	fi
 }
 
+# Checks if the argument $1 (expected to be like "1,2,3")
+# contains any branch from the branch filter (which is like "4|5|6")
+branch_number_check () {
+
+	local branches_of_file="$1"
+
+	if [ -z "$branch_filter" ]; then
+		return 0
+	elif [[ "$branches_of_file" =~ ^(${nu}+,)*(${branch_filter})(,${nu}+)*$ ]]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 long_print_if_appropriate () {
 	local group_count="$1"
 	local group_path="$3"
+	local group_nums
 
-	if appropriate_to_print "$group_count" "$group_path"; then
-		local group_nums="$(echo "$2" | tr ',' '\n' | sort -n | paste -sd,)"
+	if branch_count_check "$group_count" "$group_path"; then
+		group_nums="$(echo "$2" | tr ',' '\n' | sort -n | paste -sd,)"
 		printf "%d\t%s\t%s\n" "$group_count" "$group_nums" "$group_path"
 	fi
 }
@@ -137,14 +196,15 @@ long_print_if_appropriate () {
 # (number of branches, filepath)
 
 do_short_output () {
-	all_branches="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..$//')"
+	# all_branches="$(find "$aufs_br_dir" -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..\(+[a-z_]*\)\?$//')"
+	all_branches="$(get_filtered_branch_files | xargs cat | sed 's/=..\(+[a-z_]*\)\?$//')"
 
 	all_files_in_branches="$(while read -r broot; do
 		[ -d "${broot}${root_dir}" ] && find_with_option "${broot}${root_dir}" | cut -c "$(( ${#broot} + 1))-"
 	done < <(echo "$all_branches"))"
 
 	while read -r line_count line_path; do
-		appropriate_to_print "$line_count" "$line_path" && printf "%s\t%s\n" "$line_count" "$line_path"
+		branch_count_check "$line_count" "$line_path" && printf "%s\t%s\n" "$line_count" "$line_path"
 	done < <(echo "$all_files_in_branches" | sort | uniq -c | sed 's/^ *//' | sed 's/  */\t/')
 }
 
@@ -156,7 +216,7 @@ do_long_output () {
 		br_num="${brf##*br}"
 		br_root="$(rev "$brf" | cut -d '=' -f 2- | rev)"
 		printf "%s %s\n" "$br_num" "$br_root"
-	done < <(find /sys/fs/aufs/*/ -name "br[0-9]*"))"
+	done < <(get_filtered_branch_files))"
 	all_branches_sorted="$(echo "$all_branches" | sort -n)"
 
 	all_files_in_branches="$(while read -r br_num br_root; do

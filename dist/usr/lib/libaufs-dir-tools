@@ -11,6 +11,10 @@ show_help () {
 	echo2 "$help_text"
 }
 
+warning_msg () {
+	echo "$(tput setaf 11)$(tput bold)$prog_name: warning: $1$(tput sgr0)" >&2
+}
+
 error_quit () {
 	[ -n "$2" ] && echo "$(tput setaf 9)$(tput bold)$prog_name: error: $2$(tput sgr0)" >&2
 	[ "$3" != "nohelp" ] && show_help
@@ -42,7 +46,12 @@ aufs_folder_check () {
 	if ! [ -e "$1" ]; then
 		return 1
 	fi
-	this_fs="$(df -l --no-sync --output=fstype "$1" | tail -1)"
+	if [ -d "$1" ]; then
+		this_dir="$1"
+	else
+		this_dir="$(dirname "$1")"
+	fi
+	this_fs="$(df -l --no-sync --output=fstype "$this_dir" | tail -1)"
 	if [ "$this_fs" != 'aufs' ]; then
 		return 1
 	else
