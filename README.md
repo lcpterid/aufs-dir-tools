@@ -11,6 +11,12 @@ License: [GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html). **There is no w
 
 These tools were written and tested by hand. No GPT coding agents were used to produce any of the code or documentation.
 
+## Requirements
+
+* GNU Bash (tested on version 5.1.16)
+* GNU coreutils (tested on version 9.5)
+    * for Puppy Linux: the full `realpath` command must be installed. The `busybox` implementation is not sufficient.
+
 ## List of tools
 
 * `aufs-find`: Find files by the number of versions they have.
