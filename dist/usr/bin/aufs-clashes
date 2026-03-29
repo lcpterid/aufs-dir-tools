@@ -9,10 +9,9 @@ nu="[0-9]"
 help_text="Syntax: $prog_name [-q|-s|-l] reference_branch_number [comparison_branch_number]
 
 Finds all clashes between ordinary files in the two numbered branches.
-comparison_branch_number must be numerically greater than
-(conceptually below) reference_branch_number.
+If two numbers are given, the lower of the two becomes the reference branch.
 If comparison_branch_number is not given, then reference_branch_number is
-compared against all branches below it.
+compared against all branches below it (numerically higher) by default.
 Find branch numbers with ${stack_maker_prog}.
 
 Options:
@@ -67,12 +66,21 @@ done
 shift $(( OPTIND - 1 ))
 
 ! [[ "$1" =~ ^$nu+$ ]] && error_quit 3 "branch_number must be a positive integer"
-[ "$#" -eq 2 ] && ! [[ "$2" =~ ^$nu+$ ]] && error_quit 3 "comparison_branch_number must be a positive integer"
-[ "$#" -eq 2 ] && [ "$2" -eq "$1" ] && error_quit 4 "branch numbers must not be equal"
-[ "$#" -eq 2 ] && [ "$2" -lt "$1" ] && error_quit 4 "comparison_branch_number must be numerically greater than branch_number"
+if [ "$#" -eq 2 ]; then
+	[[ "$2" =~ ^$nu+$ ]] || error_quit 3 "comparison_branch_number must be a positive integer"
+	[ "$2" -eq "$1" ] && error_quit 4 "branch numbers must not be equal"
+fi
 
 user_branch_number="$1"
-[ "$#" -eq 2 ] && comparison_branch_number="$2"
+
+if [ "$#" -eq 2 ]; then
+	if [ "$2" -lt "$1" ]; then
+		user_branch_number="$2"
+		comparison_branch_number="$1"
+	else
+		comparison_branch_number="$2"
+	fi
+fi
 
 aufs_root="$(find /sys/fs/aufs -type d -maxdepth 1 | tail -n 1)"
 user_branch_pseudofile="${aufs_root}/br${user_branch_number}"
