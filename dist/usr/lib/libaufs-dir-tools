@@ -21,12 +21,42 @@ error_quit () {
 	exit "$1"
 }
 
+# list of aufs "symlinks"
+aufs_mount_links="$(grep ' - aufs aufs' /proc/1/mountinfo |
+	cut -d ' ' -f 4- |
+	rev |
+	cut -d ' ' -f 6- |
+	rev |
+	grep -v '^\/ \/$')"
+
+aufs_real_path () {
+	# Filter function that resolves aufs mount "symlinks"
+	# Lines given must start with the relevant path
+	# (doesn't work with branch paths)
+	while read -r this_path; do
+		new_path="$this_path"
+		while read -r link_target link_source; do
+			new_path="$(echo "$new_path" | sed "s|^${link_source}|${link_target}|")"
+		done < <(echo "$aufs_mount_links")
+		echo "$new_path"
+	done
+}
+
 mount_check () {
+	local systems="$(find . /sys/fs/aufs/ -type d -name 'si_*' | wc -l)"
+	local num_systems="$(echo "$systems" | wc -l)"
+	local first_system_name="$(echo "$systems" | head -1 | xargs basename)"
 	local mounts="$(mount | grep 'type aufs')"
 	local num_mounts="$(echo "$mounts" | wc -l)"
-	if [ "$num_mounts" -ne 1 ]; then
+
+	if [ "$num_systems" -ne 1 ]; then
+		# Multiple branch systems
+		return 1
+	elif [ "$(echo "$mounts" | grep -c "$first_system_name")" -ne "$num_mounts" ]; then
+		# Not all mounts use the first branch system
 		return 1
 	elif ! grep 'on / type aufs' < <(echo "$mounts") >/dev/null; then 
+		# There is not a mount on the root folder
 		return 1
 	else
 		return 0
@@ -36,7 +66,7 @@ mount_check () {
 branch_files_check () {
 	local branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*' 2>/dev/null)"
 	if [ "$?" -ne 0 ] || [ -z "$branch_list" ]; then
-		return 1	
+		return 1
 	else
 		return 0
 	fi
