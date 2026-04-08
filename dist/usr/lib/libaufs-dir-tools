@@ -24,10 +24,9 @@ error_quit () {
 # helper for aufs_mount_links
 prepend_source_length () {
 	while read -r this_target this_source; do
-		this_source_len="$(printf "$this_source" | wc -c)"
+		this_source_len="$(printf "%s" "$this_source" | wc -c)"
 		echo "$this_source_len" "$this_target" "$this_source"
 	done
-
 }
 
 # list of aufs "symlinks"
@@ -45,10 +44,15 @@ aufs_real_path () {
 	# Filter function that resolves aufs mount "symlinks"
 	# Lines given must start with the relevant path
 	# (doesn't work with branch paths)
+	local new_path already_resolved
 	while read -r this_path; do
 		new_path="$this_path"
+		already_resolved=""
 		while read -r link_target link_source; do
-			new_path="$(echo "$new_path" | sed "s|^${link_source}|${link_target}|")"
+			if grep "^${link_source}" < <(echo "$this_path") >/dev/null && [ -z "$already_resolved" ]; then
+				new_path="$(echo "$new_path" | sed "s|^${link_source}|${link_target}|")"
+				already_resolved="yes"
+			fi
 		done < <(echo "$aufs_mount_links")
 		echo "$new_path"
 	done
