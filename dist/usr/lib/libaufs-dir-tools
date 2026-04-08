@@ -21,13 +21,25 @@ error_quit () {
 	exit "$1"
 }
 
+# helper for aufs_mount_links
+prepend_source_length () {
+	while read -r this_target this_source; do
+		this_source_len="$(printf "$this_source" | wc -c)"
+		echo "$this_source_len" "$this_target" "$this_source"
+	done
+
+}
+
 # list of aufs "symlinks"
 aufs_mount_links="$(grep ' - aufs aufs' /proc/1/mountinfo |
 	cut -d ' ' -f 4- |
 	rev |
 	cut -d ' ' -f 6- |
 	rev |
-	grep -v '^\/ \/$')"
+	grep -v '^\/ \/$' |
+	prepend_source_length |
+	sort -nr |
+	cut -d ' ' -f 2-)"
 
 aufs_real_path () {
 	# Filter function that resolves aufs mount "symlinks"
