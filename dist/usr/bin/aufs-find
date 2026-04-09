@@ -31,10 +31,10 @@ fi
 . "$lib_path"
 
 [ "$#" -eq 0 ] && error_quit 1 ""
-mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS branch system, mounted on root (/) and optionally sub-mounted elsewhere."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-aufs_br_dir="$(echo /sys/fs/aufs/*/)"
+aufs_br_dir="$(echo /sys/fs/aufs/si*/)"
 
 recursive="no"
 version_count="1"
@@ -110,7 +110,7 @@ if [ -z "$1" ]; then
 	error_quit 1 "no directory_to_check provided"
 fi
 
-root_dir="$(realpath -s "$1")"
+root_dir="$(realpath -s "$1" | aufs_real_path)"
 if ! [ -d "$root_dir" ]; then
 	error_quit 2 "$root_dir is not a directory"
 fi
@@ -196,11 +196,13 @@ long_print_if_appropriate () {
 # (number of branches, filepath)
 
 do_short_output () {
-	# all_branches="$(find "$aufs_br_dir" -name "br[0-9]*" -print0 | xargs -0 cat | sed 's/=..\(+[a-z_]*\)\?$//')"
 	all_branches="$(get_filtered_branch_files | xargs cat | sed 's/=..\(+[a-z_]*\)\?$//')"
 
 	all_files_in_branches="$(while read -r broot; do
-		[ -d "${broot}${root_dir}" ] && find_with_option "${broot}${root_dir}" | cut -c "$(( ${#broot} + 1))-"
+		[ -d "${broot}${root_dir}" ] &&
+			find_with_option "${broot}${root_dir}" |
+			cut -c "$(( ${#broot} + 1))-" |
+			delete_sources
 	done < <(echo "$all_branches"))"
 
 	while read -r line_count line_path; do
@@ -223,7 +225,7 @@ do_long_output () {
 		[ -d "${br_root}${root_dir}" ] &&
 			while read -r beheaded_path; do
 				printf "%d\t%s\n" "$br_num" "$beheaded_path"
-			done < <(find_with_option "${br_root}${root_dir}" | cut -c "$(( ${#br_root} + 1))-")
+			done < <(find_with_option "${br_root}${root_dir}" | cut -c "$(( ${#br_root} + 1))-" | delete_sources)
 	done < <(echo "$all_branches_sorted"))"
 
 	all_files_in_branches_sorted="$(echo "$all_files_in_branches" | sort -k 2)"

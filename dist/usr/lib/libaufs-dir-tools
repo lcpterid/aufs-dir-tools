@@ -40,20 +40,51 @@ aufs_mount_links="$(grep ' - aufs aufs' /proc/1/mountinfo |
 	sort -nr |
 	cut -d ' ' -f 2-)"
 
+second_word () {
+	while read first_word second_word; do
+		echo "$second_word"
+	done
+}
+
+aufs_mount_sources="$(echo "$aufs_mount_links" | second_word)"
+
+delete_sources () {
+	# Filter function that removes any path that will be "hidden" by a symlink-like subsidiary aufs mount
+	# This is useful for post-processing a branch-specific find, after removing the branch root
+	if [ -z "$aufs_mount_sources" ]; then
+		cat
+	else
+		local branch_prefix is_forbidden
+		is_forbidden=""
+		[ -n "$1" ] && branch_prefix="${1%/}" || branch_prefix=""
+		while read -r path; do
+			while read -r forbidden_path_stem; do
+				[ -n "$(echo "$path" | grep "^${branch_prefix}${forbidden_path_stem}")" ] && is_forbidden="yes"
+			done < <(echo "$aufs_mount_sources")
+			[ -z "$is_forbidden" ] && echo "$path"
+		done
+	fi
+}
+
 aufs_real_path () {
 	# Filter function that resolves aufs mount "symlinks"
-	# Lines given must start with the relevant path
-	# (doesn't work with branch paths)
-	local new_path already_resolved
+	# Lines given must start with the relevant path (doesn't work with branch paths)
+	# Argument is a branch prefix, which is removed and re-added
+	# Warning 1: expects input to be real absolute paths
+	# Warning 2: input should be full lines. Pipe using echo (or otherwise add a line break)
+	local new_path already_resolved branch_prefix
+	[ -n "$1" ] && branch_prefix="${1%/}" || branch_prefix=""
 	while read -r this_path; do
 		new_path="$this_path"
+		[ -n "$branch_prefix" ] && new_path="$(echo "${this_path}" | sed "s*^${branch_prefix}**" )"
 		already_resolved=""
 		while read -r link_target link_source; do
 			if grep "^${link_source}" < <(echo "$this_path") >/dev/null && [ -z "$already_resolved" ]; then
-				new_path="$(echo "$new_path" | sed "s|^${link_source}|${link_target}|")"
+				new_path="$(echo "$new_path" | sed "s*^${link_source}*${link_target}*")"
 				already_resolved="yes"
 			fi
 		done < <(echo "$aufs_mount_links")
+		[ -n "$branch_prefix" ] && new_path="${branch_prefix}${new_path}"
 		echo "$new_path"
 	done
 }
@@ -89,13 +120,13 @@ branch_files_check () {
 }
 
 aufs_folder_check () {
-	if ! [ -e "$1" ]; then
-		return 1
-	fi
 	if [ -d "$1" ]; then
 		this_dir="$1"
 	else
 		this_dir="$(dirname "$1")"
+	fi
+	if ! [ -e "$this_dir" ]; then
+		return 1
 	fi
 	this_fs="$(df -l --no-sync --output=fstype "$this_dir" | tail -1)"
 	if [ "$this_fs" != 'aufs' ]; then

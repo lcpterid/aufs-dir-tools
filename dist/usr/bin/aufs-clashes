@@ -33,7 +33,7 @@ fi
 
 [ "$#" -eq 0 ] && error_quit 1 ""
 [ "$#" -gt 4 ] && error_quit 1 ""
-mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS branch system, mounted on root (/) and optionally sub-mounted elsewhere."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
 output_type="short"
@@ -82,7 +82,7 @@ if [ "$#" -eq 2 ]; then
 	fi
 fi
 
-aufs_root="$(find /sys/fs/aufs -type d -maxdepth 1 | tail -n 1)"
+aufs_root="$(find /sys/fs/aufs -type d -name 'si*' -maxdepth 1 | tail -n 1)"
 user_branch_pseudofile="${aufs_root}/br${user_branch_number}"
 [ -n "$comparison_branch_number" ] && comparison_branch_pseudofile="${aufs_root}/br${comparison_branch_number}"
 
@@ -91,12 +91,15 @@ user_branch_pseudofile="${aufs_root}/br${user_branch_number}"
 	error_quit 5 "branch number $comparison_branch_number not found"
 
 user_branch_root="$(sed 's/=..$//' "$user_branch_pseudofile")"
-user_branch_files="$(find "$user_branch_root" -type 'f,l' | sed "s|^${user_branch_root}||" | sort)"
+user_branch_files="$(find "$user_branch_root" -type 'f,l' |
+	sed "s*^${user_branch_root}**" |
+	sort |
+	delete_sources)"
 
 if [ -n "$comparison_branch_number" ]; then
 	all_branch_numbers="$comparison_branch_number"
 else
-	all_branch_numbers="$(find /sys/fs/aufs/*/ -name "br[0-9]*" -print0 | xargs -0 -n 1 basename | sed 's/^br//' | sort -n)"
+	all_branch_numbers="$(find /sys/fs/aufs/si*/ -name "br[0-9]*" -print0 | xargs -0 -n 1 basename | sed 's/^br//' | sort -n)"
 fi
 
 if [ "$include_branches_above" = "yes" ]; then
@@ -111,7 +114,10 @@ while read -r brno; do
 		[ "$progress_messages" = "yes" ] && echo2 "$(tput setaf 12)$(tput bold)Checking branch ${brno}... $(tput sgr0)"
 
 		lower_branch_root="$(sed 's/=..$//' "${aufs_root}/br${brno}")"
-		lower_branch_files="$(find "$lower_branch_root" -type 'f,l' | sed "s|^${lower_branch_root}||" | sort)"
+		lower_branch_files="$(find "$lower_branch_root" -type 'f,l' |
+			sed "s*^${lower_branch_root}**" |
+			sort |
+			delete_sources)"
 		common_lines="$(comm -12 <(echo "$user_branch_files") <(echo "$lower_branch_files"))"
 
 		while read -r brfile; do

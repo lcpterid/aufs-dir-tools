@@ -42,6 +42,6 @@ then activate or move it.
 
 ## Limitations
 
-* These tools work only if you have a single AUFS file system, and it is mounted at the root (`/`). This currently prevents it from working well on Slax, which has two mounts of the same aufs file system.
-* Some tools are specific to files, and will ignore other objects like naned pipes and sockets.
+* These tools work only if you have a single AUFS file system, with one set of branches. It must also be mounted at the root (`/`). Parts of the same aufs system may also be mounted elsewhere, functioning as a sort of grand symlink; Slax does this when you restore a session. Such links will be resolved.
+* Some tools are specific to files, and will ignore other objects like named pipes and sockets.
 
