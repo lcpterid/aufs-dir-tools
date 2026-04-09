@@ -35,7 +35,7 @@ aufs_mount_links="$(grep ' - aufs aufs' /proc/1/mountinfo |
 	rev |
 	cut -d ' ' -f 6- |
 	rev |
-	grep -v '^\/ \/$' |
+	grep -v '^/ /$' |
 	prepend_source_length |
 	sort -nr |
 	cut -d ' ' -f 2-)"
