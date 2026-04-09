@@ -28,12 +28,12 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	exit 0
 fi
 
-mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS branch system, mounted on root (/) and optionally sub-mounted elsewhere."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
 which "$stack_maker_prog" >/dev/null || error_quit 3 "could not find $stack_maker_prog executable."
 
-file_to_revert="$(realpath -m -s "$1")"
+file_to_revert="$(realpath -m -s "$1" | aufs_real_path)"
 
 [ -f "$file_to_revert" ] || error_quit 4 "file $1 not found"
 
