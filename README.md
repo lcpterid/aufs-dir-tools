@@ -42,6 +42,7 @@ then activate or move it.
 
 ## Limitations
 
-* These tools work only if you have a single AUFS file system, with one set of branches. It must also be mounted at the root (`/`). Parts of the same aufs system may also be mounted elsewhere, functioning as a sort of grand symlink; Slax does this when you restore a session. Such links will be resolved.
+* These tools work only if you have a single AUFS file system, with one set of branches. It must also be mounted at the root (`/`). Parts of the same aufs system may also be mounted elsewhere, functioning as a sort of grand symlink; Slax does this when you restore a session. Such links will mostly be resolved.
+* One exception to the above: If you do an aufs-find on a parent of one of the aufs symlink-like sub-mounts, the contents of that sub-mount will not be seen. For example, in Slax, if you do `aufs-find /root` but `/root/Downloads` contains a mount of the aufs system with folder `/home/guest/Downloads`, the contents of that Downloads folder will not be seen; `aufs-list /root/Downloads` will show files that are not seen in `aufs-list /root`.
 * Some tools are specific to files, and will ignore other objects like named pipes and sockets.
 
