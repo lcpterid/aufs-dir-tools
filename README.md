@@ -5,6 +5,8 @@ A set of small Bash tools for managing files in the `aufs` union file system. Wr
 Tested on:
 
 * Porteus 5.01 and 5.1
+* Nemesis 25.10
+* Slax 64-bit Slackware-15.0.4 
 * Puppy Linux S15Pup64 22.12
 
 License: [GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html). **There is no warranty; you run these programs at your own risk.**
@@ -42,6 +44,8 @@ then activate or move it.
 
 ## Limitations
 
-* These tools work only if you have a single AUFS file system, and it is mounted at the root (`/`). This currently prevents it from working well on Slax, which has two mounts of the same aufs file system.
-* Some tools are specific to files, and will ignore other objects like naned pipes and sockets.
+* These tools work only if you have a single AUFS file system, with one set of branches. It must also be mounted at the root (`/`). Parts of the same aufs system may also be mounted elsewhere, functioning as a sort of grand symlink; Slax does this when you restore a session. Such links will mostly be resolved.
+* One exception to the above: If you do an aufs-find on a parent of one of the aufs symlink-like sub-mounts, the contents of that sub-mount will not be seen. For example, in Slax, if you do `aufs-find /root` but `/root/Downloads` contains a mount of the aufs system with folder `/home/guest/Downloads`, the contents of that Downloads folder will not be seen; `aufs-list /root/Downloads` will show files that are not seen in `aufs-list /root`.
+* Some tools (mainly now `aufs-diff`) are specific to files, and will ignore other objects like symlinks, named pipes and sockets.
+* On some distros (Slax and Puppy), it is not possible to see files restored by `aufs-unwh` immediately. This is because they does not seem to allow remounting of the aufs file system with `udba=notify`. The script will warn you about the consequences of this, and the `mount` error will also be visible.
 

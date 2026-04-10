@@ -26,15 +26,15 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	exit 0
 fi
 
-mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS branch system, mounted on root (/) and optionally sub-mounted elsewhere."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
-path_to_unwh="$(realpath -m -s "$1")"
+path_to_unwh="$(realpath -m -s "$1" | aufs_real_path)"
 parent_folder="$(dirname "$1")"
 
 aufs_folder_check "$parent_folder" || error_quit 3 "Parent folder of $path_to_unwh is not in the AUFS filesystem"
 
-branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*' 2>/dev/null)"
+branch_list="$(find /sys/fs/aufs/si*/ -name 'br[[:digit:]]*' 2>/dev/null)"
 branch_list_sorted="$(echo "$branch_list" | 
 	while read -r brf; do printf "%d\t%s\n" "${brf##*br}" "$brf"; done |
 		sort -n |
@@ -59,6 +59,8 @@ unwh_file () {
 	[ $exit_status -eq 6 ] && error_quit "$exit_status" "Couldn't delete all whiteouts for $path_to_unwh" nohelp
 }
 
-mount -o remount,udba=notify /
+mount -o remount,udba=notify / || warning_msg "Can't remount aufs filesystem. Restored files may not be visible until you reboot."
+
 unwh_file "$path_to_unwh"
+
 mount -o remount,udba=none /

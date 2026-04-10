@@ -12,7 +12,7 @@ show_help () {
 }
 
 warning_msg () {
-	echo "$(tput setaf 11)$(tput bold)$prog_name: warning: $1$(tput sgr0)" >&2
+	echo "$(tput setaf 3)$(tput bold)$prog_name: warning: $1$(tput sgr0)" >&2
 }
 
 error_quit () {
@@ -21,12 +21,89 @@ error_quit () {
 	exit "$1"
 }
 
+# helper for aufs_mount_links
+prepend_source_length () {
+	while read -r this_target this_source; do
+		this_source_len="$(printf "%s" "$this_source" | wc -c)"
+		echo "$this_source_len" "$this_target" "$this_source"
+	done
+}
+
+# list of aufs "symlinks"
+aufs_mount_links="$(grep ' - aufs aufs' /proc/1/mountinfo |
+	cut -d ' ' -f 4- |
+	rev |
+	cut -d ' ' -f 6- |
+	rev |
+	grep -v '^/ /$' |
+	prepend_source_length |
+	sort -nr |
+	cut -d ' ' -f 2-)"
+
+second_word () {
+	while read first_word second_word; do
+		echo "$second_word"
+	done
+}
+
+aufs_mount_sources="$(echo "$aufs_mount_links" | second_word)"
+
+delete_sources () {
+	# Filter function that removes any path that will be "hidden" by a symlink-like subsidiary aufs mount
+	# This is useful for post-processing a branch-specific find, after removing the branch root
+	if [ -z "$aufs_mount_sources" ]; then
+		cat
+	else
+		local branch_prefix is_forbidden
+		is_forbidden=""
+		[ -n "$1" ] && branch_prefix="${1%/}" || branch_prefix=""
+		while read -r path; do
+			while read -r forbidden_path_stem; do
+				[ -n "$(echo "$path" | grep "^${branch_prefix}${forbidden_path_stem}")" ] && is_forbidden="yes"
+			done < <(echo "$aufs_mount_sources")
+			[ -z "$is_forbidden" ] && echo "$path"
+		done
+	fi
+}
+
+aufs_real_path () {
+	# Filter function that resolves aufs mount "symlinks"
+	# Lines given must start with the relevant path (doesn't work with branch paths)
+	# Argument is a branch prefix, which is removed and re-added
+	# Warning 1: expects input to be real absolute paths
+	# Warning 2: input should be full lines. Pipe using echo (or otherwise add a line break)
+	local new_path already_resolved branch_prefix
+	[ -n "$1" ] && branch_prefix="${1%/}" || branch_prefix=""
+	while read -r this_path; do
+		new_path="$this_path"
+		[ -n "$branch_prefix" ] && new_path="$(echo "${this_path}" | sed "s*^${branch_prefix}**" )"
+		already_resolved=""
+		while read -r link_target link_source; do
+			if grep "^${link_source}" < <(echo "$this_path") >/dev/null && [ -z "$already_resolved" ]; then
+				new_path="$(echo "$new_path" | sed "s*^${link_source}*${link_target}*")"
+				already_resolved="yes"
+			fi
+		done < <(echo "$aufs_mount_links")
+		[ -n "$branch_prefix" ] && new_path="${branch_prefix}${new_path}"
+		echo "$new_path"
+	done
+}
+
 mount_check () {
+	local systems="$(find . /sys/fs/aufs/ -type d -name 'si_*')"
+	local num_systems="$(echo "$systems" | wc -l)"
+	local first_system_name="$(echo "$systems" | head -1 | xargs basename | tr '_' '=')"
 	local mounts="$(mount | grep 'type aufs')"
 	local num_mounts="$(echo "$mounts" | wc -l)"
-	if [ "$num_mounts" -ne 1 ]; then
+
+	if [ "$num_systems" -ne 1 ]; then
+		# Multiple branch systems
+		return 1
+	elif [ "$(echo "$mounts" | grep -c "$first_system_name")" -ne "$num_mounts" ]; then
+		# Not all mounts use the first branch system
 		return 1
 	elif ! grep 'on / type aufs' < <(echo "$mounts") >/dev/null; then 
+		# There is not a mount on the root folder
 		return 1
 	else
 		return 0
@@ -36,20 +113,20 @@ mount_check () {
 branch_files_check () {
 	local branch_list="$(find /sys/fs/aufs/ -name 'br[[:digit:]]*' 2>/dev/null)"
 	if [ "$?" -ne 0 ] || [ -z "$branch_list" ]; then
-		return 1	
+		return 1
 	else
 		return 0
 	fi
 }
 
 aufs_folder_check () {
-	if ! [ -e "$1" ]; then
-		return 1
-	fi
 	if [ -d "$1" ]; then
 		this_dir="$1"
 	else
 		this_dir="$(dirname "$1")"
+	fi
+	if ! [ -e "$this_dir" ]; then
+		return 1
 	fi
 	this_fs="$(df -l --no-sync --output=fstype "$this_dir" | tail -1)"
 	if [ "$this_fs" != 'aufs' ]; then

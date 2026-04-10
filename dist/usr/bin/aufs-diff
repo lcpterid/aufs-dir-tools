@@ -8,7 +8,7 @@ stack_maker_prog="aufs-list"
 nu="[0-9]"
 help_text="Syntax: $prog_name [-bn,m] path_to_check
 
-Checks for multiple versions of a path in different AUFS branches, 
+Checks for multiple versions of a file in different AUFS branches,
 and if two or more are present, displays the diff between them.
 
 Options:
@@ -33,7 +33,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 which "$stack_maker_prog" >/dev/null || error_quit 3 "could not find $stack_maker_prog executable."
-mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS mount on root (/)."
+mount_check || error_quit 2 "AUFS mounts do not match requirements. This tool requires one AUFS branch system, mounted on root (/) and optionally sub-mounted elsewhere."
 branch_files_check || error_quit 2 "could not find AUFS branch files in /sys/fs/. Are you on an AUFS file system?"
 
 custom_branches="no"
