@@ -104,7 +104,7 @@ else
 	user_branch_file_types='f,l,p,s'
 fi
 
-user_branch_root="$(sed 's/=..$//' "$user_branch_pseudofile")"
+user_branch_root="$(sed 's/=..\(+[a-z_]*\)\?$//' "$user_branch_pseudofile")"
 user_branch_files="$(find "$user_branch_root" -type "$user_branch_file_types" |
 	sed "s*^${user_branch_root}**" |
 	sort |
@@ -127,7 +127,7 @@ while read -r brno; do
 
 		[ "$progress_messages" = "yes" ] && echo2 "$(tput setaf 12)$(tput bold)Checking branch ${brno}... $(tput sgr0)"
 
-		lower_branch_root="$(sed 's/=..$//' "${aufs_root}/br${brno}")"
+		lower_branch_root="$(sed 's/=..\(+[a-z_]*\)\?$//' "${aufs_root}/br${brno}")"
 		lower_branch_files="$(find "$lower_branch_root" -type 'f,d,l,p,s' |
 			sed "s*^${lower_branch_root}**" |
 			sort |
