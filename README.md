@@ -5,8 +5,9 @@ A set of small Bash tools for managing files in the `aufs` union file system. Wr
 Tested on:
 
 * Porteus 5.01 and 5.1
-* Puppy Linux S15Pup64 22.12
+* Nemesis 25.10
 * Slax 64-bit Slackware-15.0.4 
+* Puppy Linux S15Pup64 22.12
 
 License: [GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html). **There is no warranty; you run these programs at your own risk.**
 
