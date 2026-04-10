@@ -12,7 +12,7 @@ show_help () {
 }
 
 warning_msg () {
-	echo "$(tput setaf 11)$(tput bold)$prog_name: warning: $1$(tput sgr0)" >&2
+	echo "$(tput setaf 3)$(tput bold)$prog_name: warning: $1$(tput sgr0)" >&2
 }
 
 error_quit () {
