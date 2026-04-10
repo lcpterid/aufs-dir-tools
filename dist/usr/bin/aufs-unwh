@@ -59,6 +59,8 @@ unwh_file () {
 	[ $exit_status -eq 6 ] && error_quit "$exit_status" "Couldn't delete all whiteouts for $path_to_unwh" nohelp
 }
 
-mount -o remount,udba=notify /
+mount -o remount,udba=notify / || warning_msg "Can't remount aufs filesystem. Restored files may not be visible until you reboot."
+
 unwh_file "$path_to_unwh"
+
 mount -o remount,udba=none /
