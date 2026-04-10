@@ -39,7 +39,7 @@ branch_list_sorted="$(echo "$branch_list" |
 		sort -n |
 		cut -f 2)"
 
-all_image_folders="$(echo "$branch_list_sorted" | xargs cat | sed 's/=..$//')"
+all_image_folders="$(echo "$branch_list_sorted" | xargs cat | sed 's/=..\(+[a-z_]*\)\?$//')"
 
 aufs_folder_check "$path_to_check" || error_quit 3 "Path $path_to_check (or its parent directory) is not in the AUFS filesystem"
 
