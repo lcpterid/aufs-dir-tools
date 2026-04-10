@@ -90,9 +90,9 @@ aufs_real_path () {
 }
 
 mount_check () {
-	local systems="$(find . /sys/fs/aufs/ -type d -name 'si_*' | wc -l)"
+	local systems="$(find . /sys/fs/aufs/ -type d -name 'si_*')"
 	local num_systems="$(echo "$systems" | wc -l)"
-	local first_system_name="$(echo "$systems" | head -1 | xargs basename)"
+	local first_system_name="$(echo "$systems" | head -1 | xargs basename | tr '_' '=')"
 	local mounts="$(mount | grep 'type aufs')"
 	local num_mounts="$(echo "$mounts" | wc -l)"
 
