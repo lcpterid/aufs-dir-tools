@@ -7,8 +7,8 @@ prog_name="$(basename "$0")"
 nu="[0-9]"
 help_text="Syntax: $prog_name [-cn[+|-]] [-r] directory_to_check
 
-Find files in a directory which have multiple versions
-in different AUFS branches.
+Find files (including symlinks/pipes/sockets) within a directory, filtered by
+how many aufs branches, or which aufs branches, contain them.
 
 Options:
 -a:          Find files in all branches. Overrides -b and -c.
@@ -17,6 +17,7 @@ Options:
              If followed by a +, find files with n or more versions. -c+ is short for -c2+.
              If followed by a -, find files with n or fewer versions.
              The default is 1+, i.e. any number.
+-f:          Files only. Excludes symlinks, pipes and sockets from the results.
 -r:          Find files recursively in subfolders.
 -s:          Short output. Just count the branches, don't state the
              branch numbers. (This is significantly faster.)
@@ -43,8 +44,9 @@ output_type="long"
 branch_filter=""
 show_all="no"
 user_filtered="no"
+files_only="no"
 
-while getopts ":hab:c:rs" thisopt; do
+while getopts ":hab:c:frs" thisopt; do
 	case "$thisopt" in
 		h)
 			error_quit 0 ""
@@ -81,6 +83,9 @@ while getopts ":hab:c:rs" thisopt; do
 				version_count="${version_count_arg:0:-1}"
 				version_op="${version_count_arg: -1}"
 			fi
+			;;
+		f)
+			files_only="yes"
 			;;
 		r)
 			recursive="yes"
@@ -123,6 +128,12 @@ else
 	branch_filter_regex="br"
 fi
 
+if [ "$files_only" = "yes" ]; then
+	find_types='f'
+else
+	find_types='f,l,p,s'
+fi
+
 # Helper functions
 
 get_filtered_branch_files () {
@@ -132,9 +143,9 @@ get_filtered_branch_files () {
 find_with_option () {
 	local this_root="$1"
 	if [ "$recursive" = "yes" ]; then
-		find "$this_root" -type f
+		find "$this_root" -type "$find_types"
 	else
-		find "$this_root" -maxdepth 1 -type f
+		find "$this_root" -maxdepth 1 -type "$find_types"
 	fi
 }
 

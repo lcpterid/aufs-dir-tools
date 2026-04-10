@@ -41,14 +41,14 @@ branch_list_sorted="$(echo "$branch_list" |
 
 all_image_folders="$(echo "$branch_list_sorted" | xargs cat | sed 's/=..$//')"
 
+aufs_folder_check "$path_to_check" || error_quit 3 "Path $path_to_check (or its parent directory) is not in the AUFS filesystem"
+
 file_exists="no"
 while read -r imf; do
 	[ -e "${imf}${path_to_check}" ] && file_exists="yes"
 done < <(echo "$all_image_folders")
 
 [ "$file_exists" = "no" ] && error_quit 2 "could not find path $1 in any branch"
-
-aufs_folder_check "$path_to_check" || error_quit 3 "Path $path_to_check (or its parent directory) is not in the AUFS filesystem"
 
 while read -r brf; do
 	br_num="${brf##*br}"
